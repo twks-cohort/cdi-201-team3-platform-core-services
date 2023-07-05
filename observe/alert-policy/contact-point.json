@@ -1,9 +1,9 @@
 {
-    "uid": "cohort-team##-201-contact",
-    "name": "Cohort Team##-201",
+    "uid": "cohort-team3-201-contact",
+    "name": "Cohort Team3-201",
     "type": "email",
     "settings": {
-        "addresses": "email1@myteam.com; email2@myteam.com",
+        "addresses": "npisciot@thoughtworks.com; rilau@thoughtworks.com",
         "singleEmail": false
     },
     "disableResolveMessage": false

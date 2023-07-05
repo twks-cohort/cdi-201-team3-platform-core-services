@@ -11,7 +11,7 @@ terraform {
     hostname     = "app.terraform.io"
     organization = "twks-cohort"
     workspaces {
-      prefix = "team##-201-platform-core-services-"
+      prefix = "team3-201-platform-core-services-"
     }
   }
 }
