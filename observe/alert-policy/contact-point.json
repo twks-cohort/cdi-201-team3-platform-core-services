@@ -1,0 +1,10 @@
+{
+    "uid": "cohort-team##-201-contact",
+    "name": "Cohort Team##-201",
+    "type": "email",
+    "settings": {
+        "addresses": "email1@myteam.com; email2@myteam.com",
+        "singleEmail": false
+    },
+    "disableResolveMessage": false
+}

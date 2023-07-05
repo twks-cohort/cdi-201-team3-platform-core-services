@@ -1,0 +1,15 @@
+*.auto.tfvars.json
+kubeconfig_*
+.terraform
+.terraform.*
+.python-version
+Pipfile.lock
+prometheus/*.yaml
+prometheus-ingress/*.yaml
+prometheus-ingress/auth
+grafana-agent/*.yaml
+metrics-server/*.yaml
+sloth/*.yaml
+.DS_Store
+kubeconfig
+prometheus/auth

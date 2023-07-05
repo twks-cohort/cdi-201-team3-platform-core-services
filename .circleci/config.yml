@@ -1,0 +1,288 @@
+---
+version: 2.1
+
+orbs:
+  terraform: twdps/terraform@0.6.0
+  kube: twdps/kube-ops@0.2.0
+  op: twdps/onepassword@1.0.0
+  do: twdps/pipeline-events@0.1.0
+
+# ==== global pipeline parameters
+
+parameters:
+  context:
+    description: circleci context for all jobs
+    type: string
+    default: cohorts
+  terraform-version:
+    description: terraform version for all jobs
+    type: string
+    default: "1.2.2"
+  executor-image:
+    description: image to use for local jobs
+    type: string
+    default: twdps/circleci-kube-ops:alpine-stable
+
+# ==== triggers
+
+on-push-main: &on-push-main
+  branches:
+    only: /main/
+  tags:
+    ignore: /.*/
+
+on-tag-main: &on-tag-main
+  branches:
+    ignore: /.*/
+  tags:
+    only: /.*/
+
+commands:
+
+  set-environment:
+    description: generate environment credentials and configuration from templates
+    parameters:
+      cluster:
+        description: cluster environment
+        type: string
+      source-env:
+        description: .env file to source into BASH_ENV
+        type: string
+    steps:
+      - op/env:
+          env-file: << parameters.source-env >>
+      - run:
+          name: set ~/.terraformrc
+          command: op inject -i tpl/terraformrc.tpl -o ~/.terraformrc
+      - run:
+          name: set << parameters.cluster >> environment variables
+          command: |
+            op inject -i environments/<< parameters.cluster >>.auto.tfvars.json.tpl -o << parameters.cluster >>.auto.tfvars.json
+
+  set-kubeconfig:
+    parameters:
+      cluster:
+        description: cluster to configure
+        type: string
+    steps:
+      - run:
+          name: setup kubeconfig
+          command: |
+            mkdir -p ~/.kube
+            ENV=<< parameters.cluster >> op inject -i tpl/kubeconfig.tpl -o ~/.kube/config
+
+jobs:
+
+  deploy-core-services:
+    docker:
+      - image: << pipeline.parameters.executor-image >>
+    shell: << parameters.shell >>
+    parameters:
+      cluster:
+        description: cluster to configure
+        type: string
+      shell:
+        description: shell option directive
+        type: string
+        default: /bin/bash -eo pipefail
+      source-env:
+        description: .env file to source into BASH_ENV
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker
+      - set-environment:
+          cluster: << parameters.cluster >>
+          source-env: << parameters.source-env >>
+      - set-kubeconfig:
+          cluster: << parameters.cluster >>
+      - run:
+          name: deploy metrics-server
+          command: bash scripts/deploy_metrics_server.sh << parameters.cluster >>
+      - run:
+          name: deploy prometheus stack
+          command: bash scripts/deploy_prometheus.sh << parameters.cluster >>
+      - run:
+          name: Install htpasswd
+          command: bash scripts/install_htpasswd.sh << parameters.cluster >>
+      - run:
+          name: deploy prometheus ingress
+          command: bash scripts/deploy_prometheus_ingress.sh << parameters.cluster >>
+      #- run:
+      #    name: deploy sloth
+      #    command: bash scripts/deploy_sloth.sh << parameters.cluster >>
+      #- run:
+      #    name: deploy SLOs
+      #    command: bash -c "kubectl apply -n monitoring -f observe/slo --recursive"
+      - run:
+          name: create grafana-system namespace
+          command: bash scripts/deploy_grafana_namespace.sh << parameters.cluster >>
+      - run:
+          name: deploy grafana-agent-events
+          command: bash scripts/deploy_grafana_agent_events.sh << parameters.cluster >>
+      - run:
+          name: deploy grafana-agent-logs
+          command: bash scripts/deploy_grafana_agent_logs.sh << parameters.cluster >>
+      - run:
+          name: deploy grafana-agent-traces
+          command: bash scripts/deploy_grafana_agent_traces.sh << parameters.cluster >>
+
+  validate-core-services:
+    docker:
+      - image: << pipeline.parameters.executor-image >>
+    shell: << parameters.shell >>
+    parameters:
+      cluster:
+        description: cluster to configure
+        type: string
+      shell:
+        description: shell option directive
+        type: string
+        default: /bin/bash -eo pipefail
+      source-env:
+        description: .env file to source into BASH_ENV
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker
+      - set-environment:
+          cluster: << parameters.cluster >>
+          source-env: << parameters.source-env >>
+      - set-kubeconfig:
+          cluster: << parameters.cluster >>
+      - run:
+          name: smoketest core services
+          command: bash scripts/validate_core_services.sh << parameters.cluster >>
+      - run:
+          name: Write Prometheus endpoint
+          command: bash scripts/write_prometheus_data.sh
+
+      # consistently have too many issues with this test. Need to workout a solid orb that can
+      # be adopted in lieu of self-management.
+      # - run:
+      #     name: conformance tests
+      #     command: bash scripts/sonobuoy_conformance_test.sh << parameters.cluster >> quick
+
+  update-alerts:
+    parameters:
+      shell:
+        description: shell option directive
+        type: string
+        default: /bin/bash -eo pipefail
+      source-env:
+        description: .env file to source into BASH_ENV
+        type: string
+    docker:
+      - image: << pipeline.parameters.executor-image >>
+    shell: << parameters.shell >>
+    steps:
+      - checkout
+      - setup_remote_docker
+      - set-environment:
+          cluster: prod-us-east-2
+          source-env: << parameters.source-env >>
+      - run:
+          name: install requirements
+          command: pip install -r requirements.txt
+      - run:
+          name: update core-services alerts
+          command: python scripts/deploy_alerts.py prod-us-east-2
+
+  update-dashboards:
+    parameters:
+      shell:
+        description: shell option directive
+        type: string
+        default: /bin/bash -eo pipefail
+      source-env:
+        description: .env file to source into BASH_ENV
+        type: string
+    docker:
+      - image: << pipeline.parameters.executor-image >>
+    shell: << parameters.shell >>
+    steps:
+      - checkout
+      - setup_remote_docker
+      - set-environment:
+          cluster: prod-us-east-2
+          source-env: << parameters.source-env >>
+      - run:
+          name: install requirements
+          command: pip install -r requirements.txt
+      - run:
+          name: deploy PE dashboard folder
+          command: python scripts/deploy_grafana_folders.py prod-us-east-2
+      - run:
+          name: update core-services dashboards
+          command: python scripts/deploy_dashboards.py prod-us-east-2
+
+workflows:
+  version: 2
+
+  deploy prod-us-east-2 core services:
+    jobs:
+      - deploy-core-services:
+          name: deploy prod-us-east-2 core-services
+          context: << pipeline.parameters.context >>
+          shell:  op run --env-file op.env -- /bin/bash -eo pipefail
+          source-env: op.env
+          cluster: prod-us-east-2
+          filters: *on-push-main
+
+      - validate-core-services:
+          name: validate nonprod-us-east-2 core services
+          context: << pipeline.parameters.context >>
+          shell:  op run --env-file op.env -- /bin/bash -eo pipefail
+          source-env: op.env
+          cluster: prod-us-east-2
+          requires:
+            - deploy prod-us-east-2 core-services
+          filters: *on-push-main
+
+      - terraform/apply:
+          name: Create Grafana Prometheus Datasource
+          context: << pipeline.parameters.context >>
+          shell: op run --env-file op.env -- /bin/bash -eo pipefail
+          workspace: prod
+          terraform-version: << pipeline.parameters.terraform-version >>
+          before-terraform:
+            - set-environment:
+                cluster: prod-us-east-2
+                source-env: op.env
+          requires:
+            - validate nonprod-us-east-2 core services
+          filters: *on-push-main
+
+      - update-dashboards:
+          name: Deploy Grafana dashboards
+          context: << pipeline.parameters.context >>
+          shell: op run --env-file op.env -- /bin/bash -eo pipefail
+          source-env: op.env
+          requires:
+            - Create Grafana Prometheus Datasource
+          filters: *on-push-main
+
+      - update-alerts:
+          name: Deploy Grafana alerts
+          context: << pipeline.parameters.context >>
+          shell: op run --env-file op.env -- /bin/bash -eo pipefail
+          source-env: op.env
+          requires:
+            - Deploy Grafana dashboards
+          filters: *on-push-main
+
+#  nightly-validation:
+#    triggers:
+#      - schedule:
+#          cron: "0 0 * * *"
+#          filters:
+#            branches:
+#              only:
+#                - main
+#    jobs:
+#      - validate-core-services:
+#          name: validate nonprod-us-east-2
+#          context: << pipeline.parameters.context >>
+#          shell:  op run --env-file op.nonprod.env -- /bin/bash -eo pipefail
+#          source-env: op.nonprod.env
+#          cluster: nonprod-us-east-2
