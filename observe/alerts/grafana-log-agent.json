@@ -8,7 +8,7 @@
     "env": "prod",
     "team": "PETeam"
   },
-  "uid": "pe-prometheus-monitor",
+  "uid": "pe-grafana-log-agent-monitor",
   "folderUID": "pe-folder",
   "noDataState": "NoData",
   "execErrState": "Error",
