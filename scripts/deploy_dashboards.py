@@ -15,6 +15,8 @@ headers = {
 def upsert_dashboard(dashboard_url, headers, dashboard_json):
     response = requests.post(dashboard_url, headers=headers, json=dashboard_json)
     response.raise_for_status()
+    print(f"Messge: ${response.text}")
+
 
 directory = os.fsencode("observe/dashboards")
 
