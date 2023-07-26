@@ -12,5 +12,5 @@
     "grafana_agent_version": "v0.33.1",
     "alert_channel": "prod",
     "github_access_token": "{{ op://cohorts/team3-201-svc-github/GrafanaPAT }}",
-    "grafana_cloud_api_key": "{{ op://cohorts/team-3-201-svc-grafana/admin-plugin-publisher }}"
+    "grafana_cloud_api_key": "{{ op://cohorts/team3-201-svc-grafana/admin-plugin-publisher }}"
 }
