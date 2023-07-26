@@ -14,7 +14,6 @@ headers = {
 
 def upsert_dashboard(dashboard_url, headers, dashboard_json):
     response = requests.post(dashboard_url, headers=headers, json=dashboard_json)
-    print(f"Messge: ${response.text}")
     response.raise_for_status()
 
 
