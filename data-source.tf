@@ -22,7 +22,7 @@ resource "grafana_data_source" "prometheus" {
 }
 
 resource "grafana_data_source" "github" {
-  type                = "github"
+  type                = "grafana-github-datasource"
   name                = "cohort-github"
   url                 = "https://github.com"
   basic_auth_enabled  = true
