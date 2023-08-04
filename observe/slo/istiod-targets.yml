@@ -1,0 +1,37 @@
+apiVersion: sloth.slok.dev/v1
+kind: PrometheusServiceLevel
+metadata:
+  name: slo-k8s-istio
+  namespace: monitoring
+  labels:
+    release: prometheus
+    team: platform-engineering
+    env: prod
+spec:
+  service: "k8s-apiserver"
+  labels:
+    cluster: "prod-us-east-2"
+    component: "kubernetes"
+    team: "platform-engineering"
+  slos:
+    - name: "istiod-pods-available"
+      objective: 1
+      description: "Warn that istiod replicas are at an insufficient level."
+      labels:
+        category: availability
+      sli:
+        events:
+          errorQuery: sum(kube_deployment_status_replicas_available{deployment=~"istiod"}[{{.window}}] < 1)
+          totalQuery: sum(kube_deployment_status_replicas_available{deployment=~"istiod"}[{{.window}}])
+      alerting:
+        name: K8sIstioDAvailabilityAlert
+        labels:
+          category: "availability"
+        annotations:
+          runbook: "https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeapilatencyhigh"
+        pageAlert:
+          labels:
+            severity: critical
+        ticketAlert:
+          labels:
+            severity: warning
