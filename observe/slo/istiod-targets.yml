@@ -8,7 +8,7 @@ metadata:
     team: platform-engineering
     env: prod
 spec:
-  service: "k8s-apiserver"
+  service: "k8s-istio"
   labels:
     cluster: "prod-us-east-2"
     component: "kubernetes"
