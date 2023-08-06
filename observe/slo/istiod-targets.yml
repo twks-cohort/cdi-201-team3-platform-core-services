@@ -15,7 +15,7 @@ spec:
     team: "platform-engineering"
   slos:
     - name: "istiod-pods-available"
-      objective: 1
+      objective: 99.99
       description: "Warn that istiod replicas are at an insufficient level."
       labels:
         category: availability
