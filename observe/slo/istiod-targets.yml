@@ -21,8 +21,8 @@ spec:
         category: availability
       sli:
         events:
-          errorQuery: sum(kube_deployment_status_replicas_unavailable{deployment=~"istiod"})
-          totalQuery: sum(kube_deployment_status_replicas_available{deployment=~"istiod"})
+          errorQuery: sum(rate(istio_requests_total{response_code=~"(5..|429)"}[{{.window}}]))
+          totalQuery: sum(rate(istio_requests_total[{{.window}}]))
       alerting:
         name: K8sIstioDAvailabilityAlert
         labels:
