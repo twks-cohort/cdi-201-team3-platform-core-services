@@ -1,7 +1,7 @@
 apiVersion: sloth.slok.dev/v1
 kind: PrometheusServiceLevel
 metadata:
-  name: slo-k8s-istio
+  name: slo-k8s-istio-availability
   namespace: monitoring
   labels:
     release: prometheus
@@ -14,7 +14,7 @@ spec:
     component: "kubernetes"
     team: "platform-engineering"
   slos:
-    - name: "istiod-pods-available"
+    - name: "istiod-availability"
       objective: 99.99
       description: "Warn that istiod replicas are at an insufficient level."
       labels:
@@ -29,6 +29,28 @@ spec:
           category: "availability"
         annotations:
           runbook: "https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeapilatencyhigh"
+        pageAlert:
+          labels:
+            severity: critical
+        ticketAlert:
+          labels:
+            severity: warning
+    - name: "istiod-convergence"
+      objective: 99.995
+      description: "Istio config changes pushed to a proxy sidecar converge in less than 0.5 seconds 99.995% of the time."
+      labels:
+        category: convergence
+      sli:
+        events:
+          # https://prometheus.io/docs/practices/histograms/#:~:text=rate(http_request_duration_seconds_count%5B5m%5D)-,Apdex%20score,-A%20straight%2Dforward
+          errorQuery: sum(rate(istio_agent_pilot_proxy_convergence_time_bucket{le="0.5"}[{{.window}}])) / sum(rate(istio_agent_pilot_proxy_convergence_time_count{}[{{.window}}]))))
+          totalQuery: sum(rate(istio_agent_pilot_proxy_convergence_time_count[{{.window}}]))
+      alerting:
+        name: IstioConfigConvergenceAlert
+        labels:
+          category: "convergence"
+        annotations:
+          summary: "Slow convergence detected"
         pageAlert:
           labels:
             severity: critical
